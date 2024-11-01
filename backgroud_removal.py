@@ -128,6 +128,8 @@ class InMemoryDataset(Dataset):
 # 3. 학습 루프 정의
 def train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device):
     best_val_loss = float('inf')
+    train_losses = []
+    val_losses = []
 
     for epoch in range(num_epochs):
         model.train()
@@ -163,6 +165,9 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
 
         val_loss /= len(val_loader.dataset)
 
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+
         print(f"Epoch [{epoch + 1}/{num_epochs}] - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
 
         # Save the model
@@ -172,6 +177,17 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
             print("Model saved.")
 
     print("Training complete.")
+
+    # Plotting the training and validation loss
+    plt.figure()
+    plt.plot(range(1, num_epochs + 1), train_losses, label='Train Loss')
+    plt.plot(range(1, num_epochs + 1), val_losses, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Train and Validation Loss')
+    plt.legend()
+    plt.savefig('loss_curve.png')
+    plt.show()
 
 # 4. 모델 로드 및 예측 함수
 def load_model(model_path, model, device):
@@ -191,6 +207,29 @@ def predict(model, image, device):
 
     return output
 
+# 5. 평가 지표 계산 함수
+def compute_metrics(pred, target):
+    pred = pred.astype(np.uint8).flatten()
+    target = target.astype(np.uint8).flatten()
+
+    intersection = np.sum(pred * target)
+    union = np.sum(pred) + np.sum(target) - intersection
+
+    if union == 0:
+        iou_score = 1.0  # 만약 예측과 실제값이 모두 0이면 IoU는 1로 설정
+    else:
+        iou_score = intersection / union
+
+    dice_denominator = np.sum(pred) + np.sum(target)
+    if dice_denominator == 0:
+        dice_score = 1.0  # 만약 예측과 실제값이 모두 0이면 Dice 계수는 1로 설정
+    else:
+        dice_score = 2 * intersection / dice_denominator
+
+    accuracy = np.sum(pred == target) / len(pred)
+
+    return iou_score, dice_score, accuracy
+
 if __name__ == '__main__':
     import warnings
 
@@ -208,9 +247,20 @@ if __name__ == '__main__':
     batch_size = 8
     image_size = (256, 256)
 
-    # 이미지와 마스크 파일의 공통 부분 찾기
-    image_files = set(os.listdir(images_dir))
-    mask_files = set(os.listdir(masks_dir))
+    # 허용되는 이미지 확장자 정의
+    allowed_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff'}
+
+    # 지정된 디렉토리에서 이미지 파일만 가져오는 함수
+    def get_image_files(directory):
+        files = []
+        for f in os.listdir(directory):
+            if os.path.splitext(f)[1].lower() in allowed_extensions:
+                files.append(f)
+        return files
+
+    # 이미지와 마스크 파일 가져오기
+    image_files = set(get_image_files(images_dir))
+    mask_files = set(get_image_files(masks_dir))
 
     # 이미지와 마스크의 전체 경로 리스트 생성
     image_paths = sorted([os.path.join(images_dir, f) for f in image_files])
@@ -221,10 +271,14 @@ if __name__ == '__main__':
     masks_list = []
 
     for img_path, mask_path in zip(image_paths, mask_paths):
-        image = Image.open(img_path).convert('RGB')
-        mask = Image.open(mask_path).convert('L')
-        images_list.append(image)
-        masks_list.append(mask)
+        try:
+            image = Image.open(img_path).convert('RGB')
+            mask = Image.open(mask_path).convert('L')
+            images_list.append(image)
+            masks_list.append(mask)
+        except Exception as e:
+            print(f"이미지 또는 마스크를 로드하는 중 오류 발생: {e}")
+            continue
 
     # 데이터 증강 및 증강된 이미지 추가
     augmented_images = []
@@ -305,46 +359,77 @@ if __name__ == '__main__':
     train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device)
 
     # 최적의 모델 로드
-    model = load_model("best_meat_separation_model.pth", model, device)
+    model = load_model("best_meat_separation_unet_model.pth", model, device)
 
-    # 테스트 세트에서 예측 및 시각화
-    test_image, test_mask = test_dataset[0]
-    predicted_mask = predict(model, test_image, device)
+    # 테스트 세트에서 예측 및 평가
+    iou_scores = []
+    dice_scores = []
+    accuracies = []
 
-    # predicted_mask의 데이터 타입 확인 및 변환
-    print("predicted_mask type:", type(predicted_mask))
-    print("predicted_mask dtype:", predicted_mask.dtype)
-    print("predicted_mask shape:", predicted_mask.shape)
+    model.eval()
+    with torch.no_grad():
+        for images, masks in test_loader:
+            images = images.to(device)
+            masks = masks.to(device)
 
-    # 만약 predicted_mask의 dtype이 object이면 uint8로 변환
-    if predicted_mask.dtype == object:
-        predicted_mask = np.array(predicted_mask, dtype=np.uint8)
+            outputs = model(images)
+            preds = (outputs > 0.5).float()
 
-    # 시각화를 위한 이미지 역정규화
-    inv_normalize = transforms.Normalize(
-        mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
-        std=[1 / 0.229, 1 / 0.224, 1 / 0.225]
-    )
-    test_image_vis = inv_normalize(test_image).permute(1, 2, 0).numpy()
-    test_image_vis = np.clip(test_image_vis, 0, 1)
+            preds_np = preds.cpu().numpy()
+            masks_np = masks.cpu().numpy()
 
-    # test_mask를 numpy 배열로 변환
-    test_mask_np = test_mask.squeeze().cpu().numpy()
+            for pred, mask in zip(preds_np, masks_np):
+                pred = pred.squeeze()
+                mask = mask.squeeze()
 
-    plt.figure(figsize=(15, 5))
-    plt.subplot(1, 3, 1)
-    plt.title("Original Image")
-    plt.imshow(test_image_vis)
-    plt.axis('off')
+                iou_score, dice_score, accuracy = compute_metrics(pred, mask)
+                iou_scores.append(iou_score)
+                dice_scores.append(dice_score)
+                accuracies.append(accuracy)
 
-    plt.subplot(1, 3, 2)
-    plt.title("Ground Truth Mask")
-    plt.imshow(test_mask_np, cmap='gray')
-    plt.axis('off')
+    mean_iou = np.mean(iou_scores)
+    mean_dice = np.mean(dice_scores)
+    mean_accuracy = np.mean(accuracies)
 
-    plt.subplot(1, 3, 3)
-    plt.title("Predicted Mask")
-    plt.imshow(predicted_mask, cmap='gray')
-    plt.axis('off')
+    print(f"\nTest set metrics:")
+    print(f"Mean IoU: {mean_iou:.4f}")
+    print(f"Mean Dice Coefficient: {mean_dice:.4f}")
+    print(f"Mean Pixel Accuracy: {mean_accuracy:.4f}")
 
-    plt.show()
+    # 테스트 세트에서 일부 샘플 시각화
+    num_samples_to_visualize = 3
+    samples_indices = np.random.choice(len(test_dataset), num_samples_to_visualize, replace=False)
+
+    for idx in samples_indices:
+        test_image, test_mask = test_dataset[idx]
+        predicted_mask = predict(model, test_image, device)
+
+        # 시각화를 위한 이미지 역정규화
+        inv_normalize = transforms.Normalize(
+            mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
+            std=[1 / 0.229, 1 / 0.224, 1 / 0.225]
+        )
+        test_image_vis = inv_normalize(test_image).permute(1, 2, 0).numpy()
+        test_image_vis = np.clip(test_image_vis, 0, 1)
+
+        # test_mask를 numpy 배열로 변환
+        test_mask_np = test_mask.squeeze().cpu().numpy()
+        test_mask_np = (test_mask_np > 0.5).astype(np.uint8) * 255
+
+        plt.figure(figsize=(15, 5))
+        plt.subplot(1, 3, 1)
+        plt.title("Original Image")
+        plt.imshow(test_image_vis)
+        plt.axis('off')
+
+        plt.subplot(1, 3, 2)
+        plt.title("Ground Truth Mask")
+        plt.imshow(test_mask_np, cmap='gray')
+        plt.axis('off')
+
+        plt.subplot(1, 3, 3)
+        plt.title("Predicted Mask")
+        plt.imshow(predicted_mask, cmap='gray')
+        plt.axis('off')
+
+        plt.show()
