@@ -3,16 +3,16 @@ import numpy as np
 from PIL import Image
 
 # 원본 이미지 경로 설정
-img_path = 'data/1.jpg'
+img_path = 'data/10.jpg'
 
 # 마스크 이미지 경로 설정
-mask_path = 'mask/1.png'
+mask_path = 'mask/10.png'
 
 # 이미지 열기 (컬러 이미지로)
 image = Image.open(img_path).convert("RGB")
 
 # 마스크 이미지 열기 (그레이스케일로 변환)
-mask_image = Image.open(mask_path).convert("L")
+mask_image = Image.open(mask_path).convert("L")   
 
 # 임계값 설정 (지방만 흰색으로 나타나도록 높게 설정)
 threshold = 180  # 필요에 따라 조정하세요
