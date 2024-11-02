@@ -125,7 +125,7 @@ class InMemoryDataset(Dataset):
 
         return image, mask
 
-# 3. 학습 루프 정의
+# 3. 학습 루프 정의 (변경하지 않음)
 def train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device):
     best_val_loss = float('inf')
     train_losses = []
@@ -356,7 +356,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # 모델 학습
-    train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device)
+    #train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device)
 
     # 최적의 모델 로드
     model = load_model("best_meat_separation_unet_model.pth", model, device)
@@ -396,6 +396,30 @@ if __name__ == '__main__':
     print(f"Mean Dice Coefficient: {mean_dice:.4f}")
     print(f"Mean Pixel Accuracy: {mean_accuracy:.4f}")
 
+    # 테스트 세트 지표 히스토그램 시각화
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 3, 1)
+    plt.hist(iou_scores, bins=20, color='skyblue')
+    plt.title('IoU Score Distribution')
+    plt.xlabel('IoU Score')
+    plt.ylabel('Frequency')
+
+    plt.subplot(1, 3, 2)
+    plt.hist(dice_scores, bins=20, color='salmon')
+    plt.title('Dice Coefficient Distribution')
+    plt.xlabel('Dice Coefficient')
+    plt.ylabel('Frequency')
+
+    plt.subplot(1, 3, 3)
+    plt.hist(accuracies, bins=20, color='limegreen')
+    plt.title('Pixel Accuracy Distribution')
+    plt.xlabel('Pixel Accuracy')
+    plt.ylabel('Frequency')
+
+    plt.tight_layout()
+    plt.savefig('test_metrics_histogram.png')
+    plt.show()
+
     # 테스트 세트에서 일부 샘플 시각화
     num_samples_to_visualize = 3
     samples_indices = np.random.choice(len(test_dataset), num_samples_to_visualize, replace=False)
@@ -416,6 +440,9 @@ if __name__ == '__main__':
         test_mask_np = test_mask.squeeze().cpu().numpy()
         test_mask_np = (test_mask_np > 0.5).astype(np.uint8) * 255
 
+        # 해당 샘플의 지표 계산
+        iou_score, dice_score, accuracy = compute_metrics(predicted_mask, test_mask_np)
+
         plt.figure(figsize=(15, 5))
         plt.subplot(1, 3, 1)
         plt.title("Original Image")
@@ -428,7 +455,7 @@ if __name__ == '__main__':
         plt.axis('off')
 
         plt.subplot(1, 3, 3)
-        plt.title("Predicted Mask")
+        plt.title(f"Predicted Mask\nIoU: {iou_score:.4f}, Dice: {dice_score:.4f}, Acc: {accuracy:.4f}")
         plt.imshow(predicted_mask, cmap='gray')
         plt.axis('off')
 
