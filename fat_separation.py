@@ -3,10 +3,10 @@ import numpy as np
 from PIL import Image
 
 # 원본 이미지 경로 설정
-img_path = 'data/28.jpg'
+img_path = 'data/55.png'
 
 # 마스크 이미지 경로 설정
-mask_path = 'mask/28.png'
+mask_path = 'mask/55.png'
 
 # 이미지 열기 (컬러 이미지로)
 image = Image.open(img_path).convert("RGB")
