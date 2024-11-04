@@ -455,7 +455,7 @@ if __name__ == '__main__':
         plt.axis('off')
 
         plt.subplot(1, 3, 3)
-        plt.title(f"Predicted Mask\nIoU: {iou_score:.4f}, Dice: {dice_score:.4f}, Acc: {accuracy:.4f}")
+        plt.title(f"Predicted Mask")
         plt.imshow(predicted_mask, cmap='gray')
         plt.axis('off')
 
