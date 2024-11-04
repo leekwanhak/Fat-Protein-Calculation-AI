@@ -359,7 +359,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # 모델 학습
-    train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device)
+    #train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device)
 
     # 최적의 모델 로드
     model = load_model("best_fat_separation_unet_model.pth", model, device)
