@@ -3,10 +3,10 @@ import numpy as np
 from PIL import Image
 
 # 원본 이미지 경로 설정
-img_path = 'data/55.png'
+img_path = 'test.png'
 
 # 마스크 이미지 경로 설정
-mask_path = 'mask/55.png'
+mask_path = 'maskedtest.png'
 
 # 이미지 열기 (컬러 이미지로)
 image = Image.open(img_path).convert("RGB")
@@ -15,7 +15,7 @@ image = Image.open(img_path).convert("RGB")
 mask_image = Image.open(mask_path).convert("L")   
 
 # 임계값 설정 (지방만 흰색으로 나타나도록 높게 설정)
-threshold = 160  # 필요에 따라 조정하세요
+threshold = 130  # 필요에 따라 조정하세요
 
 # 이미지를 NumPy 배열로 변환
 image_np = np.array(image)  # shape: (height, width, 3)
