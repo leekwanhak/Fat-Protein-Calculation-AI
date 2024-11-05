@@ -55,13 +55,13 @@ def detect_rectangular_object(image_path):
             
         # 병합된 직사각형 그리기
         box = cv2.boxPoints(merged_rect)
-        box = np.int0(box)
+        box = np.intp(box)
         cv2.drawContours(result, [box], 0, (0, 255, 0), 2)
     
     # 직사각형이 1개인 경우 해당 직사각형만 그리기
     elif len(valid_rectangles) == 1:
         box = cv2.boxPoints(valid_rectangles[0])
-        box = np.int0(box)
+        box = np.intp(box)
         cv2.drawContours(result, [box], 0, (0, 255, 0), 2)
     
     return result, edges
